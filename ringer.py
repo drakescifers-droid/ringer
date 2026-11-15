@@ -903,6 +903,7 @@ class StateWriter:
         max_parallel: int = 1,
         artifact: ArtifactConfig | None = None,
         path: Path | None = None,
+        manifest_path: str = "",
     ) -> None:
         self.run_id = run_id
         self.run_name = run_name
@@ -914,6 +915,7 @@ class StateWriter:
         self.max_parallel = max_parallel
         self.state_dir = state_dir
         self.path = path or (state_dir / "runs" / f"{run_id}.json")
+        self.manifest_path = manifest_path
         self.pid = os.getpid()
         self.port: int | None = None
         self.finished = False
@@ -1033,6 +1035,7 @@ class StateWriter:
                 "run_id": self.run_id,
                 "run_name": self.run_name,
                 "identity": self.identity,
+                "manifest_path": self.manifest_path,
                 "state": "finished" if self.finished else "live",
                 "pid": self.pid,
                 "port": self.port,
@@ -2602,6 +2605,20 @@ ARTIFACT_BASE_CSS = """
     font-size: 13px;
     line-height: 1.45;
   }
+  .live-log {
+    max-height: 36vh;
+    margin: 8px 0 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    background: var(--surface);
+    color: var(--ink);
+    border-left: 2px solid var(--accent);
+    padding: 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.45;
+  }
   .run-row {
     display: grid;
     gap: 16px;
@@ -3067,6 +3084,11 @@ def html_to_text(value: str) -> str:
     return re.sub(r"<[^>]+>", "", value)
 
 
+def strip_terminal_ansi(value: str) -> str:
+    text = re.sub(r"\x1b\[[0-9;?]*[ -/]*[@-~]", "", value)
+    return re.sub(r"\[[0-9;]{1,6}m", "", text)
+
+
 def plain_transition_line(
     task_key: str,
     previous_status: str | None,
@@ -3285,6 +3307,23 @@ def render_work_group(
                 f"<pre>{html_escape(shorten(proof_tail, 1200))}</pre></details>"
             )
 
+    spec_text = str(task.get("spec") or "").strip()
+    brief_html = ""
+    if spec_text:
+        brief_html = (
+            '<details class="proof"><summary>What it was asked to do</summary>'
+            f"<pre>{html_escape(spec_text)}</pre></details>"
+        )
+    live_log_html = ""
+    if bucket in {"working", "retry"}:
+        tail = task.get("log_tail_full") or task.get("log_tail") or []
+        if isinstance(tail, list):
+            log_text = "\n".join(str(line) for line in tail)
+        else:
+            log_text = str(tail)
+        log_text = strip_terminal_ansi(log_text).strip() or "Waiting for the worker to write its log."
+        live_log_html = f'<pre class="live-log">{html_escape(log_text)}</pre>'
+
     links_html = render_task_links(
         task,
         state=state,
@@ -3303,6 +3342,8 @@ def render_work_group(
       </div>
       <div class="work-group-body">
         {items_html}
+        {live_log_html}
+        {brief_html}
         {verified_html}
         <span class="links">{links_html}</span>
       </div>
@@ -3678,6 +3719,7 @@ def inject_models_tab_into_ringside_html(html: str) -> str:
     tabs = """
     <nav class="tabs" id="ringside-tabs" aria-label="Ringside views">
       <button type="button" class="tab" id="runs-tab" aria-selected="true">Runs</button>
+      <button type="button" class="tab" id="workers-tab" aria-selected="false">Workers</button>
       <button type="button" class="tab" id="models-tab" aria-selected="false">Models</button>
     </nav>
 """
@@ -3790,8 +3832,10 @@ def inject_models_tab_into_ringside_html(html: str) -> str:
       const VIEW_KEY = "ringside-view";
       const runsPanel = document.getElementById("artifacts-panel");
       const modelsPanel = document.getElementById("models-panel");
+      const workersPanel = document.getElementById("workers-panel");
       const runsTab = document.getElementById("runs-tab");
       const modelsTab = document.getElementById("models-tab");
+      const workersTab = document.getElementById("workers-tab");
       const status = document.getElementById("models-status");
       const wrap = document.getElementById("models-table-wrap");
       if (!runsPanel || !modelsPanel || !runsTab || !modelsTab || !status || !wrap) return;
@@ -3928,17 +3972,21 @@ def inject_models_tab_into_ringside_html(html: str) -> str:
       }
 
       function selectView(view, persist = true) {
-        activeView = view === "models" ? "models" : "runs";
-        runsPanel.hidden = activeView === "models";
+        activeView = view === "models" || view === "workers" ? view : "runs";
+        runsPanel.hidden = activeView !== "runs";
         modelsPanel.hidden = activeView !== "models";
+        if (workersPanel) workersPanel.hidden = activeView !== "workers";
         runsTab.setAttribute("aria-selected", String(activeView === "runs"));
         modelsTab.setAttribute("aria-selected", String(activeView === "models"));
+        if (workersTab) workersTab.setAttribute("aria-selected", String(activeView === "workers"));
         if (persist) localStorage.setItem(VIEW_KEY, activeView);
         if (activeView === "models") fetchModels(true);
+        if (activeView === "workers" && window.ringsideLoadWorkers) window.ringsideLoadWorkers(true);
       }
 
       runsTab.addEventListener("click", () => selectView("runs"));
       modelsTab.addEventListener("click", () => selectView("models"));
+      if (workersTab) workersTab.addEventListener("click", () => selectView("workers"));
       wrap.addEventListener("click", event => {
         const row = event.target.closest(".model-row");
         if (!row) return;
@@ -3958,7 +4006,8 @@ def inject_models_tab_into_ringside_html(html: str) -> str:
       setInterval(() => {
         if (activeView === "models") fetchModels(false);
       }, MODELS_REFRESH_MS);
-      selectView(localStorage.getItem(VIEW_KEY) === "models" ? "models" : "runs", false);
+      const storedView = localStorage.getItem(VIEW_KEY);
+      selectView(storedView === "models" || storedView === "workers" ? storedView : "runs", false);
     }
 
 """
@@ -3998,11 +4047,16 @@ def send_response_body(
     handler.wfile.write(body)
 
 
-def send_json_response(handler: BaseHTTPRequestHandler, data: dict[str, Any]) -> None:
+def send_json_response(
+    handler: BaseHTTPRequestHandler,
+    data: dict[str, Any],
+    *,
+    status: HTTPStatus = HTTPStatus.OK,
+) -> None:
     body = json.dumps(data, sort_keys=True).encode("utf-8")
     send_response_body(
         handler,
-        HTTPStatus.OK,
+        status,
         body,
         content_type="application/json; charset=utf-8",
         no_store=True,
@@ -4128,6 +4182,414 @@ def serve_artifact_path(handler: BaseHTTPRequestHandler, artifact_root: Path, pa
     return True
 
 
+ROSTER_MARKS = {"available", "default", "audition", "hidden"}
+ROSTER_ENGINE_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def default_roster_path() -> Path:
+    return default_config_path().parent / "roster.toml"
+
+
+def empty_roster() -> dict[str, Any]:
+    return {"harnesses": {}, "models": []}
+
+
+def load_roster(path: Path | None = None) -> dict[str, Any]:
+    roster_path = path or default_roster_path()
+    if not roster_path.exists():
+        return empty_roster()
+    try:
+        with roster_path.open("rb") as fh:
+            data = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return empty_roster()
+    if not isinstance(data, dict):
+        return empty_roster()
+    harnesses: dict[str, dict[str, Any]] = {}
+    raw_harnesses = data.get("harness")
+    if isinstance(raw_harnesses, dict):
+        for name, item in raw_harnesses.items():
+            if not isinstance(item, dict):
+                continue
+            clean_name = str(name).strip()
+            if not ROSTER_ENGINE_RE.fullmatch(clean_name):
+                continue
+            harnesses[clean_name] = {
+                "enabled": bool(item.get("enabled", True)),
+                "default_model": str(item.get("default_model") or "").strip(),
+            }
+    models: list[dict[str, str]] = []
+    raw_models = data.get("model")
+    if isinstance(raw_models, list):
+        for item in raw_models:
+            if not isinstance(item, dict):
+                continue
+            engine = str(item.get("engine") or "").strip()
+            model = str(item.get("model") or "").strip()
+            mark = str(item.get("mark") or "available").strip()
+            if not ROSTER_ENGINE_RE.fullmatch(engine) or not model or "\n" in model or len(model) > 200:
+                continue
+            if mark not in ROSTER_MARKS:
+                mark = "available"
+            models.append({"engine": engine, "model": model, "mark": mark})
+    return {"harnesses": harnesses, "models": models}
+
+
+def save_roster(roster: dict[str, Any], path: Path | None = None) -> None:
+    roster_path = path or default_roster_path()
+    lines: list[str] = []
+    harnesses = roster.get("harnesses") or {}
+    if isinstance(harnesses, dict):
+        for name in sorted(harnesses):
+            item = harnesses[name]
+            if not isinstance(item, dict) or not ROSTER_ENGINE_RE.fullmatch(str(name)):
+                continue
+            enabled = "true" if item.get("enabled", True) else "false"
+            default_model = str(item.get("default_model") or "")
+            lines.append(f"[harness.{name}]")
+            lines.append(f"enabled = {enabled}")
+            lines.append(f"default_model = {json.dumps(default_model)}")
+            lines.append("")
+    models = roster.get("models") or []
+    if isinstance(models, list):
+        for item in models:
+            if not isinstance(item, dict):
+                continue
+            engine = str(item.get("engine") or "")
+            model = str(item.get("model") or "")
+            mark = str(item.get("mark") or "available")
+            if mark not in ROSTER_MARKS:
+                mark = "available"
+            lines.append("[[model]]")
+            lines.append(f"engine = {json.dumps(engine)}")
+            lines.append(f"model = {json.dumps(model)}")
+            lines.append(f"mark = {json.dumps(mark)}")
+            lines.append("")
+    roster_path.parent.mkdir(parents=True, exist_ok=True)
+    atomic_write_text(roster_path, "\n".join(lines).rstrip() + "\n")
+
+
+def engine_bin_installed(bin_value: str) -> bool:
+    text = str(bin_value or "").strip()
+    if not text:
+        return False
+    candidate = Path(text).expanduser()
+    if candidate.is_file():
+        return True
+    return shutil.which(text) is not None
+
+
+def catalog_model_for_slug(catalog_by_id: dict[str, dict[str, Any]], model_slug: str) -> dict[str, Any] | None:
+    slug = model_slug.strip()
+    if slug in catalog_by_id:
+        return catalog_by_id[slug]
+    if slug.startswith("openrouter/"):
+        return catalog_by_id.get(slug[len("openrouter/") :])
+    return catalog_by_id.get(f"openrouter/{slug}")
+
+
+def catalog_price_label(model: dict[str, Any] | None) -> str:
+    if not model:
+        return ""
+    if model.get("free"):
+        return "free"
+    prompt = model.get("prompt_per_m")
+    completion = model.get("completion_per_m")
+    try:
+        prompt_value = float(prompt) if prompt is not None else None
+        completion_value = float(completion) if completion is not None else None
+    except (TypeError, ValueError):
+        return ""
+    if prompt_value is None and completion_value is None:
+        return ""
+    prompt_text = "—" if prompt_value is None else f"${prompt_value:.2f}"
+    completion_text = "—" if completion_value is None else f"${completion_value:.2f}"
+    return f"{prompt_text} / {completion_text} per M"
+
+
+def engine_for_scoreboard_row(row: dict[str, Any]) -> str:
+    model = str(row.get("model") or "")
+    harness = str(row.get("harness") or "").lower()
+    engine = str(row.get("worker_engine") or "").strip().lower()
+    if engine in {"codex", "opencode", "grok"}:
+        return engine
+    if "opencode" in harness or model.startswith("openrouter/"):
+        return "opencode"
+    if "grok" in harness or model.startswith("grok"):
+        return "grok"
+    if "codex" in harness:
+        return "codex"
+    return "opencode" if "/" in model else "codex"
+
+
+def manifest_model_snippet(engine: str, model: str) -> str:
+    return json.dumps({"engine": engine, "model": model}, sort_keys=True)
+
+
+def build_workers_payload() -> dict[str, Any]:
+    try:
+        config = AppConfig.load()
+    except Exception as exc:
+        return {
+            "ok": False,
+            "generated_at": utc_now_iso(),
+            "harnesses": [],
+            "models": [],
+            "task_types": [],
+            "error": str(exc) or exc.__class__.__name__,
+        }
+    roster = load_roster()
+    error = ""
+    try:
+        models_payload = build_models_api_payload(
+            log_path=config.eval.jsonl_path,
+            default_log_path=config.eval.jsonl_path,
+        )
+    except Exception as exc:
+        models_payload = {"groups": [], "rollup": [], "generated_at": utc_now_iso()}
+        error = str(exc) or exc.__class__.__name__
+    catalog_models: list[dict[str, Any]] = []
+    with contextlib.suppress(Exception):
+        catalog_models = load_catalog_snapshot(default_catalog_path())
+    catalog_by_id = {str(item.get("id") or ""): item for item in catalog_models if item.get("id")}
+    rollup = models_payload.get("rollup") if isinstance(models_payload.get("rollup"), list) else []
+    groups = models_payload.get("groups") if isinstance(models_payload.get("groups"), list) else []
+    rollup_by_model = {
+        str(row.get("model") or ""): row
+        for row in rollup
+        if isinstance(row, dict) and str(row.get("model") or "")
+    }
+    task_types: set[str] = set()
+    for group in groups:
+        if isinstance(group, dict):
+            task_type = str(group.get("task_type") or "").strip()
+            if task_type and task_type != "(untyped)":
+                task_types.add(task_type)
+
+    harness_rows = []
+    for name in sorted(config.engines):
+        engine = config.engines[name]
+        saved = roster["harnesses"].get(name, {})
+        default_model = str(saved.get("default_model") or engine.model_default or "")
+        harness_rows.append(
+            {
+                "name": name,
+                "enabled": bool(saved.get("enabled", True)),
+                "installed": engine_bin_installed(engine.bin),
+                "bin": engine.bin,
+                "model_default": engine.model_default,
+                "default_model": default_model,
+            }
+        )
+
+    seen: set[tuple[str, str]] = set()
+    model_rows: list[dict[str, Any]] = []
+
+    def append_model(engine: str, model: str, mark: str, persisted: bool) -> None:
+        key = (engine, model)
+        if not engine or not model or key in seen:
+            return
+        seen.add(key)
+        evidence = rollup_by_model.get(model, {})
+        types = []
+        if isinstance(evidence.get("task_types"), list):
+            types = [
+                str(item.get("task_type") or "")
+                for item in evidence["task_types"]
+                if isinstance(item, dict) and item.get("task_type")
+            ]
+        catalog_model = catalog_model_for_slug(catalog_by_id, model)
+        model_rows.append(
+            {
+                "engine": engine,
+                "model": model,
+                "mark": mark if mark in ROSTER_MARKS else "available",
+                "persisted": persisted,
+                "tier": str(evidence.get("tier") or "untested"),
+                "tasks": int(evidence.get("tasks") or 0),
+                "first_try_pass_rate": float(evidence.get("first_try_pass_rate") or 0),
+                "pass_rate": float(evidence.get("pass_rate") or 0),
+                "last_seen": str(evidence.get("last_seen") or ""),
+                "task_types": types,
+                "price": catalog_price_label(catalog_model),
+                "snippet": manifest_model_snippet(engine, model),
+            }
+        )
+
+    for item in roster["models"]:
+        append_model(item["engine"], item["model"], item["mark"], True)
+    for row in rollup:
+        if not isinstance(row, dict):
+            continue
+        model = str(row.get("model") or "")
+        append_model(engine_for_scoreboard_row(row), model, "available", False)
+    for harness in harness_rows:
+        if harness["default_model"]:
+            append_model(harness["name"], harness["default_model"], "default", False)
+
+    model_rows.sort(
+        key=lambda item: (
+            {"default": 0, "audition": 1, "available": 2, "hidden": 3}.get(str(item["mark"]), 4),
+            -int(item["tasks"]),
+            str(item["model"]),
+        )
+    )
+    return {
+        "ok": True,
+        "generated_at": str(models_payload.get("generated_at") or utc_now_iso()),
+        "harnesses": harness_rows,
+        "models": model_rows,
+        "task_types": sorted(task_types),
+        "error": error,
+    }
+
+
+def _roster_model_index(roster: dict[str, Any], engine: str, model: str) -> int:
+    for index, item in enumerate(roster["models"]):
+        if item["engine"] == engine and item["model"] == model:
+            return index
+    return -1
+
+
+def apply_roster_action(payload: dict[str, Any]) -> dict[str, Any]:
+    action = str(payload.get("action") or "").strip()
+    roster = load_roster()
+    if action == "set-harness":
+        name = str(payload.get("name") or "").strip()
+        if not ROSTER_ENGINE_RE.fullmatch(name):
+            return {"ok": False, "error": "Harness name is not valid."}
+        current = roster["harnesses"].get(name, {"enabled": True, "default_model": ""})
+        current["enabled"] = bool(payload.get("enabled", True))
+        roster["harnesses"][name] = current
+    elif action in {"set-mark", "set-default", "add"}:
+        engine = str(payload.get("engine") or "").strip()
+        model = str(payload.get("model") or "").strip()
+        if not ROSTER_ENGINE_RE.fullmatch(engine) or not model or "\n" in model or len(model) > 200:
+            return {"ok": False, "error": "Engine and model are required."}
+        mark = "default" if action == "set-default" else str(payload.get("mark") or "available").strip()
+        if action == "add":
+            mark = str(payload.get("mark") or "available").strip()
+        if mark not in ROSTER_MARKS:
+            return {"ok": False, "error": "Mark must be available, default, audition, or hidden."}
+        if mark == "default":
+            for item in roster["models"]:
+                if item["engine"] == engine and item["mark"] == "default":
+                    item["mark"] = "available"
+            harness = roster["harnesses"].setdefault(engine, {"enabled": True, "default_model": ""})
+            harness["default_model"] = model
+        index = _roster_model_index(roster, engine, model)
+        entry = {"engine": engine, "model": model, "mark": mark}
+        if index >= 0:
+            roster["models"][index] = entry
+        else:
+            roster["models"].append(entry)
+    elif action == "remove":
+        engine = str(payload.get("engine") or "").strip()
+        model = str(payload.get("model") or "").strip()
+        roster["models"] = [
+            item for item in roster["models"] if not (item["engine"] == engine and item["model"] == model)
+        ]
+        harness = roster["harnesses"].get(engine)
+        if harness and harness.get("default_model") == model:
+            harness["default_model"] = ""
+    else:
+        return {"ok": False, "error": "Unknown roster action."}
+    save_roster(roster)
+    result = build_workers_payload()
+    result["ok"] = True
+    return result
+
+
+def search_catalog_models(query: str, *, limit: int = 25, catalog_path: Path | None = None) -> list[dict[str, Any]]:
+    needle = query.strip().lower()
+    if len(needle) < 2:
+        return []
+    try:
+        models = load_catalog_snapshot(catalog_path or default_catalog_path())
+    except Exception:
+        return []
+    matches: list[dict[str, Any]] = []
+    for model in models:
+        model_id = str(model.get("id") or "")
+        name = str(model.get("name") or "")
+        if needle not in model_id.lower() and needle not in name.lower():
+            continue
+        matches.append(
+            {
+                "id": model_id,
+                "name": name or model_id,
+                "free": bool(model.get("free")),
+                "context_length": int(model.get("context_length") or 0),
+                "price": catalog_price_label(model),
+                "snippet_model": model_id if model_id.startswith("openrouter/") else f"openrouter/{model_id}",
+            }
+        )
+        if len(matches) >= limit:
+            break
+    return matches
+
+
+def refresh_catalog_payload() -> dict[str, Any]:
+    try:
+        result = refresh_openrouter_catalog(default_catalog_path())
+    except Exception as exc:
+        return {"ok": False, "error": str(exc) or exc.__class__.__name__}
+    return {"ok": True, "count": len(result.models), "events": len(result.events)}
+
+
+def run_command_payload(state_dir: Path, run_id: str) -> dict[str, Any]:
+    path = run_state_path_for_id(state_dir, run_id)
+    if path is None or not path.is_file():
+        return {"ok": False, "command": "", "error": "Run not found."}
+    state = read_json_object(path, {})
+    manifest = str(state.get("manifest_path") or "").strip()
+    if not manifest:
+        return {
+            "ok": False,
+            "command": "",
+            "error": "This run was recorded before Ringside stored the manifest path. Start it again from the terminal.",
+        }
+    return {
+        "ok": True,
+        "command": f"./ringer.py run {shlex.quote(manifest)}",
+        "manifest": manifest,
+        "run_name": str(state.get("run_name") or ""),
+    }
+
+
+def cancel_run_payload(run_id: str) -> dict[str, Any]:
+    clean_id = run_id.strip()
+    if not clean_id or "/" in clean_id or clean_id.startswith("."):
+        return {"ok": False, "error": "Run id is not valid."}
+    runs = read_active_runs()
+    entry = runs.get(clean_id)
+    if not entry:
+        return {"ok": False, "error": "That run is not live."}
+    try:
+        pid = int(entry.get("pid") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if pid <= 0:
+        return {"ok": False, "error": "That run has no process id."}
+    children, _commands = ProcessTree.read()
+    descendants: list[int] = []
+    stack = list(children.get(pid, []))
+    while stack:
+        child = stack.pop()
+        descendants.append(child)
+        stack.extend(children.get(child, []))
+    for child in reversed(descendants):
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.kill(child, signal.SIGTERM)
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return {"ok": False, "error": "That process is already gone."}
+    except PermissionError:
+        return {"ok": False, "error": "Could not signal that process."}
+    return {"ok": True, "pid": pid}
+
+
 class PersistentHudServer:
     def __init__(
         self,
@@ -4189,6 +4651,19 @@ class PersistentHudServer:
                         }
                     send_json_response(self, payload)
                     return
+                if path == "/api/roster":
+                    send_json_response(self, build_workers_payload())
+                    return
+                if path == "/api/catalog":
+                    params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    query = (params.get("q") or [""])[0]
+                    send_json_response(self, {"models": search_catalog_models(query)})
+                    return
+                if path == "/api/runs/command":
+                    params = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+                    run_id = (params.get("run") or [""])[0]
+                    send_json_response(self, run_command_payload(state_dir, run_id))
+                    return
                 if path.startswith("/api/open-folder"):
                     query = urllib.parse.urlparse(path).query
                     params = urllib.parse.parse_qs(query)
@@ -4248,6 +4723,53 @@ class PersistentHudServer:
                         content_type="text/plain; charset=utf-8",
                         no_store=True,
                     )
+                    return
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+            def do_POST(self) -> None:  # noqa: N802
+                path = urllib.parse.urlparse(self.path).path
+                try:
+                    length = int(self.headers.get("Content-Length", "0") or 0)
+                except ValueError:
+                    length = -1
+                if length < 0 or length > 16384:
+                    send_json_response(
+                        self,
+                        {"ok": False, "error": "Request body is too large."},
+                        status=HTTPStatus.REQUEST_ENTITY_TOO_LARGE,
+                    )
+                    return
+                raw = self.rfile.read(length) if length else b"{}"
+                try:
+                    payload = json.loads(raw.decode("utf-8") or "{}")
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    send_json_response(
+                        self,
+                        {"ok": False, "error": "Body must be JSON."},
+                        status=HTTPStatus.BAD_REQUEST,
+                    )
+                    return
+                if not isinstance(payload, dict):
+                    send_json_response(
+                        self,
+                        {"ok": False, "error": "Body must be a JSON object."},
+                        status=HTTPStatus.BAD_REQUEST,
+                    )
+                    return
+                if path == "/api/roster":
+                    result = apply_roster_action(payload)
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_REQUEST
+                    send_json_response(self, result, status=status)
+                    return
+                if path == "/api/catalog/refresh":
+                    result = refresh_catalog_payload()
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.BAD_GATEWAY
+                    send_json_response(self, result, status=status)
+                    return
+                if path == "/api/runs/cancel":
+                    result = cancel_run_payload(str(payload.get("run_id") or ""))
+                    status = HTTPStatus.OK if result.get("ok") else HTTPStatus.NOT_FOUND
+                    send_json_response(self, result, status=status)
                     return
                 self.send_error(HTTPStatus.NOT_FOUND)
 
@@ -6804,6 +7326,7 @@ class RingerRunner:
             self.lock,
             max_parallel=manifest.max_parallel,
             artifact=config.artifact,
+            manifest_path=str(manifest.source_path) if manifest.source_path else "",
         )
         self.dashboard = (
             Dashboard(

@@ -441,12 +441,148 @@
     }
     .artifact-tools {
       display: grid;
-      grid-template-columns: minmax(220px, max-content) minmax(0, 1fr) minmax(180px, max-content) max-content;
+      grid-template-columns: minmax(240px, 1.5fr) minmax(0, 1fr) minmax(160px, max-content) max-content max-content max-content;
       gap: 12px;
       align-items: center;
       padding: 10px clamp(12px, 2vw, 18px);
       border-bottom: 1px solid var(--hairline);
     }
+    .library { position: relative; min-width: 0; }
+    .library-button {
+      width: 100%;
+      text-align: left;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      padding-right: 28px;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238fa0b6' stroke-width='1.6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center;
+    }
+    .library-panel {
+      position: absolute;
+      z-index: 5;
+      top: calc(100% + 6px);
+      left: 0;
+      width: min(440px, 80vw);
+      max-height: 60vh;
+      overflow: auto;
+      padding: 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--ground);
+      box-shadow: 0 16px 40px rgba(0, 0, 0, .35);
+    }
+    .library-panel input[type="search"] {
+      width: 100%;
+      margin-bottom: 8px;
+      padding: 7px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+    }
+    .library-filters { display: flex; gap: 6px; margin-bottom: 8px; }
+    .library-filters button,
+    .run-actions button,
+    .workers-toolbar button,
+    .roster-actions button,
+    .catalog-add button {
+      padding: 4px 8px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .library-filters button[aria-pressed="true"] {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .library-group {
+      margin: 8px 0 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .library-option {
+      display: block;
+      width: 100%;
+      padding: 7px 8px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      font-size: 12px;
+    }
+    .library-option:hover,
+    .library-option[aria-selected="true"] { background: var(--surface); }
+    .library-empty { margin: 8px; color: var(--muted); font-size: 13px; }
+    .run-actions { display: flex; gap: 8px; margin: 0 0 12px; }
+    .workers-panel {
+      min-height: calc(100vh - 83px);
+      padding: 0 clamp(12px, 2vw, 22px) clamp(20px, 3vw, 30px);
+    }
+    .workers-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--hairline);
+    }
+    .workers-toolbar p { margin: 0; color: var(--muted); font-size: 12px; }
+    .workers-controls, .catalog-add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .workers-controls select, .catalog-add select, .catalog-add input {
+      padding: 6px 8px;
+      border: 1px solid var(--hairline);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 12px;
+    }
+    .catalog-add { margin: 12px 0; }
+    .catalog-add input { min-width: min(100%, 280px); }
+    .catalog-results { display: grid; gap: 4px; width: 100%; }
+    .harness-list { display: grid; gap: 8px; margin: 12px 0 22px; }
+    .harness-row, .roster-table {
+      border: 1px solid var(--hairline);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .harness-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+    }
+    .harness-row b { font-size: 14px; }
+    .harness-meta { color: var(--muted); font-size: 12px; }
+    #workers-table-wrap { overflow: auto; }
+    .roster-table { width: 100%; min-width: 1080px; border-collapse: collapse; font-size: 13px; }
+    .roster-table th, .roster-table td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--hairline);
+      text-align: left;
+      vertical-align: middle;
+    }
+    .roster-table th {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .roster-actions { display: flex; flex-wrap: nowrap; gap: 6px; }
+    .mark-default { color: var(--pass); }
+    .mark-audition { color: var(--accent); }
+    .mark-hidden { color: var(--waiting); }
     .artifact-status {
       min-width: 0;
       overflow: hidden;
@@ -545,9 +681,23 @@
         <div class="artifact-layout">
           <section class="artifact-main" aria-label="Artifact preview">
             <div class="artifact-tools">
-              <select id="artifact-picker" class="mono" aria-label="Artifact"></select>
+              <div class="library" id="artifact-library">
+                <button id="artifact-picker" class="library-button mono" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Artifact">No artifacts yet</button>
+                <div id="artifact-picker-panel" class="library-panel" hidden>
+                  <input id="artifact-search" class="mono" type="search" placeholder="Search runs" aria-label="Search runs">
+                  <div class="library-filters" role="group" aria-label="Filter runs">
+                    <button type="button" data-filter="all" aria-pressed="true">All</button>
+                    <button type="button" data-filter="live" aria-pressed="false">Live</button>
+                    <button type="button" data-filter="pass" aria-pressed="false">Pass</button>
+                    <button type="button" data-filter="fail" aria-pressed="false">Fail</button>
+                  </div>
+                  <div id="artifact-picker-list" role="listbox" aria-label="Runs"></div>
+                </div>
+              </div>
               <div id="artifact-status" class="artifact-status">No artifact selected.</div>
               <select id="artifact-version" class="mono" aria-label="Artifact version"></select>
+              <button id="copy-command" type="button" title="Copy the terminal command that starts this manifest again">Copy rerun</button>
+              <button id="cancel-run" type="button" hidden title="Stop the live run">Cancel</button>
               <button id="open-folder" type="button" title="Open this run's files in Finder">Open folder</button>
             </div>
             <div id="frame-wrap" class="frame-wrap">
@@ -558,6 +708,33 @@
             </section>
           </section>
         </div>
+      </section>
+      <section id="workers-panel" class="panel workers-panel" hidden>
+        <div class="workers-toolbar">
+          <p id="workers-status" class="mono">Workers not loaded.</p>
+          <div class="workers-controls">
+            <label>Task type
+              <select id="workers-task-type" aria-label="Filter by task type">
+                <option value="">All</option>
+              </select>
+            </label>
+            <label><input id="workers-show-hidden" type="checkbox"> Show hidden</label>
+            <button id="workers-refresh-catalog" type="button">Refresh catalog</button>
+          </div>
+        </div>
+        <h2>Harnesses</h2>
+        <div id="workers-harnesses" class="harness-list"></div>
+        <h2>Roster</h2>
+        <div class="catalog-add">
+          <select id="workers-add-engine" aria-label="Harness for a catalog model">
+            <option value="opencode">opencode</option>
+            <option value="codex">codex</option>
+            <option value="grok">grok</option>
+          </select>
+          <input id="workers-catalog-query" type="search" placeholder="Search the catalog to add a model" aria-label="Search the catalog">
+          <div id="workers-catalog-results" class="catalog-results"></div>
+        </div>
+        <div id="workers-table-wrap"></div>
       </section>
     </main>
   </div>
@@ -579,6 +756,9 @@
       artifactName: sessionStorage.getItem(ARTIFACT_KEY) || "",
       artifactManual: Boolean(sessionStorage.getItem(ARTIFACT_KEY)),
       artifactVersion: "live",
+      libraryQuery: "",
+      libraryFilter: "all",
+      libraryOpen: false,
       frameKey: "",
       frameContent: "",
       frameRequest: 0,
@@ -823,7 +1003,8 @@
         // Morphing syncs attributes from server HTML, which never carries
         // this inline style — re-assert it so the pane owns all scrolling.
         doc.documentElement.style.overflowY = "hidden";
-        frame.style.height = Math.max(120, doc.documentElement.scrollHeight) + "px";
+        const page = doc.querySelector(".page") || doc.body;
+        frame.style.height = Math.max(120, page.scrollHeight) + "px";
       } catch (_e) {}
     }
 
@@ -914,8 +1095,37 @@
         legend.textContent = `${counts.pass} finished & checked · ${counts.working} working · ${counts.retry} sent back · ${counts.waiting} waiting · ${counts.fail} failed`;
         section.appendChild(legend);
 
+        const showingArtifact = Boolean(selectedName);
         const workers = document.createElement("div");
         workers.className = "workers";
+        if (showingArtifact) {
+          if (preferred === undefined) section.open = false;
+          run.tasks.forEach(task => {
+            const spec = String(task.spec || "").trim();
+            const check = String(task.check || "").trim();
+            if (!spec && !check) return;
+            const brief = document.createElement("details");
+            brief.className = "brief";
+            const summary = document.createElement("summary");
+            summary.textContent = `${task.key || "worker"} — what it was asked to do`;
+            brief.appendChild(summary);
+            if (spec) {
+              const specPre = document.createElement("pre");
+              specPre.textContent = spec;
+              brief.appendChild(specPre);
+            }
+            if (check) {
+              const checkLine = document.createElement("p");
+              checkLine.className = "brief-check mono";
+              checkLine.textContent = `Pass test: ${check}`;
+              brief.appendChild(checkLine);
+            }
+            workers.appendChild(brief);
+          });
+          section.appendChild(workers);
+          staging.appendChild(section);
+          return;
+        }
         if (!run.tasks.length) {
           const empty = document.createElement("div");
           empty.className = "empty";
@@ -1304,22 +1514,99 @@
       };
     }
 
+    function artifactLabel(artifact) {
+      const marker = artifact.state === "live" ? "● " : "";
+      const stateLabel = artifact.state === "live" ? "live" : artifact.state;
+      return `${marker}${artifact.name} — ${stateLabel} · updated ${relativeAgo(artifact.updated_at)}`;
+    }
+
+    function libraryPrefix(name) {
+      const parts = String(name || "").split("-").filter(Boolean);
+      return parts.length > 1 ? parts[0] : "";
+    }
+
+    function closeLibrary() {
+      state.libraryOpen = false;
+      const panel = document.getElementById("artifact-picker-panel");
+      if (panel) panel.hidden = true;
+      if (els.artifactPicker) els.artifactPicker.setAttribute("aria-expanded", "false");
+    }
+
+    function openLibrary() {
+      state.libraryOpen = true;
+      const panel = document.getElementById("artifact-picker-panel");
+      if (panel) panel.hidden = false;
+      if (els.artifactPicker) els.artifactPicker.setAttribute("aria-expanded", "true");
+      document.getElementById("artifact-search")?.focus();
+    }
+
+    function selectArtifact(name) {
+      if (!name) return;
+      state.artifactName = name;
+      state.artifactManual = true;
+      state.artifactVersion = "live";
+      state.frameKey = "";
+      closeLibrary();
+      sessionStorage.setItem(ARTIFACT_KEY, name);
+      renderArtifacts();
+      renderArtifactControls();
+      renderLive();
+      loadArtifactFrame(true);
+    }
+
     function renderArtifacts() {
       syncArtifactSelection();
-      let options;
-      if (!state.artifacts.length) {
-        options = [{value: "", text: state.libraryError ? "Ringside reconnecting…" : "No artifacts yet"}];
-      } else {
-        options = state.artifacts.map(artifact => {
-          const marker = artifact.state === "live" ? "● " : "";
-          return {
-            value: artifact.name,
-            text: `${marker}${artifact.name} — ${artifact.state === "live" ? "live" : artifact.state} · updated ${relativeAgo(artifact.updated_at)}`
-          };
-        });
-      }
-      syncSelect(els.artifactPicker, options, state.artifacts.length ? state.artifactName : "");
+      const list = document.getElementById("artifact-picker-list");
+      if (!els.artifactPicker || !list) return;
+      const selected = state.artifacts.find(item => item.name === state.artifactName);
+      els.artifactPicker.textContent = selected
+        ? artifactLabel(selected)
+        : (state.libraryError ? "Ringside reconnecting…" : "No artifacts yet");
       els.artifactPicker.disabled = !state.artifacts.length;
+      const query = state.libraryQuery.trim().toLowerCase();
+      const filter = state.libraryFilter;
+      const visible = state.artifacts.filter(artifact => {
+        if (filter === "live" && artifact.state !== "live") return false;
+        if (filter === "pass" && artifact.state !== "pass") return false;
+        if (filter === "fail" && artifact.state !== "fail" && artifact.state !== "died") return false;
+        if (query && !artifact.name.toLowerCase().includes(query)) return false;
+        return true;
+      });
+      list.replaceChildren();
+      if (!visible.length) {
+        const empty = document.createElement("p");
+        empty.className = "library-empty";
+        empty.textContent = state.artifacts.length ? "No runs match." : "No artifacts yet.";
+        list.appendChild(empty);
+        return;
+      }
+      const counts = new Map();
+      visible.forEach(artifact => {
+        const prefix = libraryPrefix(artifact.name);
+        if (prefix) counts.set(prefix, (counts.get(prefix) || 0) + 1);
+      });
+      let currentGroup = null;
+      visible.forEach(artifact => {
+        const prefix = libraryPrefix(artifact.name);
+        const group = prefix && counts.get(prefix) >= 2 ? prefix : "";
+        if (group !== currentGroup) {
+          currentGroup = group;
+          if (group) {
+            const heading = document.createElement("div");
+            heading.className = "library-group";
+            heading.textContent = group;
+            list.appendChild(heading);
+          }
+        }
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "library-option mono";
+        option.setAttribute("role", "option");
+        option.setAttribute("aria-selected", String(artifact.name === state.artifactName));
+        option.textContent = artifactLabel(artifact);
+        option.addEventListener("click", () => selectArtifact(artifact.name));
+        list.appendChild(option);
+      });
     }
 
     function renderArtifactControls() {
@@ -1352,6 +1639,8 @@
       });
       syncSelect(els.artifactVersion, options, state.artifactVersion);
       els.artifactVersion.disabled = false;
+      const cancel = document.getElementById("cancel-run");
+      if (cancel) cancel.hidden = artifact.state !== "live" || state.artifactVersion !== "live";
     }
 
     function formatVersionTime(value) {
@@ -1516,19 +1805,281 @@
       fetch(`/api/open-folder?artifact=${encodeURIComponent(artifact.name)}&run=${encodeURIComponent(runId)}`).catch(() => {});
     });
 
-    els.artifactPicker.addEventListener("change", () => {
-      const name = els.artifactPicker.value;
-      if (!name) return;
-      state.artifactName = name;
-      state.artifactManual = true;
-      state.artifactVersion = "live";
-      state.frameKey = "";
-      sessionStorage.setItem(ARTIFACT_KEY, name);
-      renderArtifacts();
-      renderArtifactControls();
-      loadArtifactFrame(true);
+    els.artifactPicker.addEventListener("click", () => {
+      if (els.artifactPicker.disabled) return;
+      if (state.libraryOpen) closeLibrary();
+      else openLibrary();
     });
+    document.getElementById("artifact-search")?.addEventListener("input", event => {
+      state.libraryQuery = event.target.value || "";
+      renderArtifacts();
+    });
+    document.querySelectorAll(".library-filters button").forEach(button => {
+      button.addEventListener("click", () => {
+        state.libraryFilter = button.dataset.filter || "all";
+        document.querySelectorAll(".library-filters button").forEach(item => {
+          item.setAttribute("aria-pressed", String(item === button));
+        });
+        renderArtifacts();
+      });
+    });
+    document.addEventListener("click", event => {
+      const library = document.getElementById("artifact-library");
+      if (!library || library.contains(event.target)) return;
+      closeLibrary();
+    });
+    document.getElementById("copy-command")?.addEventListener("click", async () => {
+      const button = document.getElementById("copy-command");
+      const previous = button.textContent;
+      const restore = (label) => {
+        button.textContent = label;
+        setTimeout(() => { button.textContent = previous; }, 1600);
+      };
+      const runId = selectedRunId();
+      if (!runId) {
+        restore("No run");
+        return;
+      }
+      try {
+        const response = await fetch(`/api/runs/command?run=${encodeURIComponent(runId)}`, {cache: "no-store"});
+        const payload = await response.json();
+        if (!payload.ok || !payload.command) throw new Error(payload.error || "No command stored for this run.");
+        await navigator.clipboard.writeText(payload.command);
+        restore("Copied");
+      } catch (error) {
+        button.title = error?.message || "Could not copy the command.";
+        restore("Unavailable");
+      }
+    });
+    document.getElementById("cancel-run")?.addEventListener("click", async () => {
+      const runId = selectedRunId();
+      if (!runId) return;
+      if (!window.confirm("Stop this live run?")) return;
+      const button = document.getElementById("cancel-run");
+      try {
+        const response = await fetch("/api/runs/cancel", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({run_id: runId})
+        });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.error || "Could not stop the run.");
+        button.textContent = "Stopping";
+      } catch (error) {
+        button.title = error?.message || "Could not stop the run.";
+        button.textContent = "Still running";
+      }
+    });
+    function selectedRunId() {
+      const artifact = selectedArtifact();
+      if (!artifact) return "";
+      if (state.artifactVersion !== "live") {
+        const version = artifact.versions.find(item => item.key === state.artifactVersion);
+        return version?.run_id || "";
+      }
+      const live = state.runs.find(run => run.run_name === artifact.name && run.state === "live");
+      return live?.__id || artifact.current_run_id || "";
+    }
+    function installWorkersView() {
+      const status = document.getElementById("workers-status");
+      const harnesses = document.getElementById("workers-harnesses");
+      const wrap = document.getElementById("workers-table-wrap");
+      const typeSelect = document.getElementById("workers-task-type");
+      const showHidden = document.getElementById("workers-show-hidden");
+      const queryInput = document.getElementById("workers-catalog-query");
+      const results = document.getElementById("workers-catalog-results");
+      const engineSelect = document.getElementById("workers-add-engine");
+      if (!status || !harnesses || !wrap) return;
+      let payload = null;
+      let searchTimer = null;
+
+      function percent(value) {
+        const number = Number(value);
+        return Number.isFinite(number) ? `${Math.round(number * 100)}%` : "0%";
+      }
+
+      function stamp(value) {
+        const text = String(value || "").trim();
+        if (!text) return "—";
+        const parsed = Date.parse(text);
+        return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : text.slice(0, 10);
+      }
+
+      async function mutate(body) {
+        const response = await fetch("/api/roster", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        });
+        const next = await response.json();
+        if (!response.ok || next.ok === false) throw new Error(next.error || "Could not update the roster.");
+        payload = next;
+        render();
+      }
+
+      function render() {
+        const error = String(payload?.error || "").trim();
+        status.textContent = error ? error : `updated ${stamp(payload?.generated_at)}`;
+        const types = Array.isArray(payload?.task_types) ? payload.task_types : [];
+        const currentType = typeSelect.value;
+        typeSelect.replaceChildren(new Option("All", ""));
+        types.forEach(type => typeSelect.append(new Option(type, type)));
+        if ([...typeSelect.options].some(option => option.value === currentType)) typeSelect.value = currentType;
+
+        harnesses.replaceChildren();
+        (payload?.harnesses || []).forEach(harness => {
+          const row = document.createElement("div");
+          row.className = "harness-row";
+          const main = document.createElement("div");
+          const title = document.createElement("b");
+          title.textContent = harness.name;
+          const meta = document.createElement("div");
+          meta.className = "harness-meta mono";
+          const installed = harness.installed ? "binary found" : "binary not found";
+          const availability = harness.enabled ? "included in the roster" : "hidden from the roster";
+          const fallback = harness.default_model ? ` · default ${harness.default_model}` : "";
+          meta.textContent = `${installed} · ${availability}${fallback}`;
+          main.append(title, meta);
+          const toggle = document.createElement("button");
+          toggle.type = "button";
+          toggle.textContent = harness.enabled ? "Turn off" : "Turn on";
+          toggle.addEventListener("click", () => {
+            mutate({action: "set-harness", name: harness.name, enabled: !harness.enabled}).catch(showError);
+          });
+          row.append(main, toggle);
+          harnesses.appendChild(row);
+        });
+
+        const filter = typeSelect.value;
+        const rows = (payload?.models || []).filter(model => {
+          if (!showHidden.checked && model.mark === "hidden") return false;
+          if (!filter) return true;
+          return Array.isArray(model.task_types) && model.task_types.includes(filter);
+        });
+        if (!rows.length) {
+          wrap.innerHTML = '<p class="library-empty">No models on the roster for this filter. Search the catalog to add one.</p>';
+          return;
+        }
+        const table = document.createElement("table");
+        table.className = "roster-table";
+        table.innerHTML = "<thead><tr><th>Model</th><th>Harness</th><th>Mark</th><th>Tier</th><th>Tasks</th><th>First-try</th><th>Pass</th><th>Last used</th><th></th></tr></thead>";
+        const body = document.createElement("tbody");
+        rows.forEach(model => {
+          const tr = document.createElement("tr");
+          const name = document.createElement("td");
+          name.innerHTML = `<div>${escapeHtml(model.model)}</div><div class="harness-meta mono">${escapeHtml(model.price || "")}</div>`;
+          const cells = [
+            model.engine,
+            model.mark,
+            model.tier,
+            String(model.tasks || 0),
+            percent(model.first_try_pass_rate),
+            percent(model.pass_rate),
+            stamp(model.last_seen)
+          ];
+          tr.append(name);
+          cells.forEach((value, index) => {
+            const td = document.createElement("td");
+            td.textContent = value;
+            if (index === 1) td.className = `mark-${model.mark}`;
+            tr.appendChild(td);
+          });
+          const actions = document.createElement("td");
+          actions.className = "roster-actions";
+          const buttons = [
+            ["Default", () => mutate({action: "set-default", engine: model.engine, model: model.model})],
+            ["Audition", () => mutate({action: "set-mark", engine: model.engine, model: model.model, mark: "audition"})],
+            [model.mark === "hidden" ? "Unhide" : "Hide", () => mutate({action: "set-mark", engine: model.engine, model: model.model, mark: model.mark === "hidden" ? "available" : "hidden"})],
+            ["Copy snippet", async () => { await navigator.clipboard.writeText(model.snippet || ""); }]
+          ];
+          if (model.persisted) {
+            buttons.push(["Remove", () => mutate({action: "remove", engine: model.engine, model: model.model})]);
+          }
+          buttons.forEach(([label, action]) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = label;
+            button.addEventListener("click", () => Promise.resolve(action()).catch(showError));
+            actions.appendChild(button);
+          });
+          tr.appendChild(actions);
+          body.appendChild(tr);
+        });
+        table.appendChild(body);
+        wrap.replaceChildren(table);
+      }
+
+      function showError(error) {
+        status.textContent = error?.message || "Could not update workers.";
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, character => ({
+          "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+        }[character]));
+      }
+
+      async function load(force) {
+        if (!force && payload) return;
+        status.textContent = "Loading workers…";
+        try {
+          const response = await fetch(`/api/roster?t=${Date.now()}`, {cache: "no-store"});
+          payload = await response.json();
+          render();
+        } catch (error) {
+          showError(error);
+        }
+      }
+
+      typeSelect.addEventListener("change", render);
+      showHidden.addEventListener("change", render);
+      document.getElementById("workers-refresh-catalog")?.addEventListener("click", async () => {
+        status.textContent = "Refreshing the catalog…";
+        try {
+          const response = await fetch("/api/catalog/refresh", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+          const result = await response.json();
+          if (!result.ok) throw new Error(result.error || "Catalog refresh failed.");
+          await load(true);
+        } catch (error) {
+          showError(error);
+        }
+      });
+      queryInput?.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(async () => {
+          const query = queryInput.value.trim();
+          results.replaceChildren();
+          if (query.length < 2) return;
+          try {
+            const response = await fetch(`/api/catalog?q=${encodeURIComponent(query)}`, {cache: "no-store"});
+            const data = await response.json();
+            (data.models || []).forEach(model => {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.textContent = `${model.name} · ${model.price || "price unknown"}`;
+              button.addEventListener("click", () => {
+                mutate({
+                  action: "add",
+                  engine: engineSelect.value || "opencode",
+                  model: model.snippet_model || model.id
+                }).then(() => {
+                  queryInput.value = "";
+                  results.replaceChildren();
+                }).catch(showError);
+              });
+              results.appendChild(button);
+            });
+          } catch (error) {
+            showError(error);
+          }
+        }, 250);
+      });
+      window.ringsideLoadWorkers = load;
+      load(true);
+    }
+    installWorkersView();
     document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && state.libraryOpen) closeLibrary();
       if (event.key === "Escape" && state.expanded) closeWorker();
     });
 
