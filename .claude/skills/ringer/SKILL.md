@@ -181,7 +181,7 @@ Pattern-selection judgment:
 ## Engine selection
 
 **The engine choice belongs to the human — but the recommendation comes
-from THEIR evidence.** Before the FIRST run of a job: read what's wired up
+from THEIR evidence.** Before every round of a job: read what's wired up
 (`[engines.<name>]` blocks in `~/.config/ringer/config.toml`), run
 `./ringer.py models --task-type <this job's type>` for the local scoreboard,
 and glance at `./ringer.py catalog --changes` for anything newly free or
@@ -190,8 +190,7 @@ options with the NUMBERS in the pitch and a recommendation, e.g.: *"GLM is
 6/6 first-try on persona work here at ~2¢/task — recommended. Codex is also
 100% but ~8x the tokens. And kimi went free on OpenRouter yesterday — want
 it auditioning one of the small tasks?"* Honor their pick via the per-task
-`engine`/`model` fields; don't re-ask every round of the same job unless
-the mix isn't working. This is per-user by design: the scoreboard learns
+`engine`/`model` fields, and ask again at the start of each round. This is per-user by design: the scoreboard learns
 THIS user's workload — never import another machine's conclusions or
 recommend from a different user's numbers.
 
